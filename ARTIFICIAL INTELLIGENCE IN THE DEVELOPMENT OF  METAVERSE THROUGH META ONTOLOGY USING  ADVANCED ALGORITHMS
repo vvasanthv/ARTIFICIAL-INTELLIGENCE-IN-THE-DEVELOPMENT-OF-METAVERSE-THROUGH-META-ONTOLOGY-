@@ -1,0 +1,400 @@
+
+
+public class UnrealExamples : ModuleRules
+{
+	public UnrealExamples(ReadOnlyTargetRules Target) : base(Target)
+	{
+		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
+
+		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "HeadMountedDisplay" });
+
+		PrivateDependencyModuleNames.AddRange(new string[] { "ReadyPlayerMe" });
+
+		// Dependencies Web Browser
+		PrivateDependencyModuleNames.AddRange(new string[] { });
+	}
+}
+import {
+    InworldClient,
+    InworldPacket,
+  } from '@inworld/nodejs-sdk';
+  async function sayHello() {
+    const client = new InworldClient()
+      // Get key and secret from the integrations page.
+      .setApiKey({
+        key: process.env.INWORLD_KEY!,
+        secret: process.env.INWORLD_SECRET!,
+      })
+      // Setup a user name.
+      // It allows character to call you by name.
+      .setUser({ fullName: 'Your name' })
+      // Setup required capabilities.
+      // In this case you can receive character emotions.
+      .setConfiguration({
+        capabilities: { audio: true, emotions: true },      })
+      // Use a full character name.
+      // It should be like workspaces/{WORKSPACE_NAME}/characters/{CHARACTER_NAME}.
+      // Or like workspaces/{WORKSPACE_NAME}/scenes/{SCENE_NAME}.
+      .setScene(process.env.INWORLD_SCENE!)
+      // Attach handlers
+      .setOnError((err: Error) => console.error(err))
+      .setOnMessage((packet: InworldPacket) => {
+        console.log(packet);
+        if (packet.isInteractionEnd()) {
+          // Close connection.
+          connection.close();
+        }
+      });
+    // Finish connection configuration.
+    const connection = client.build();
+    // Send your message to a character.
+    await connection.sendText('Hello');
+  }
+  sayHello();
+  import { InworldClient } from '@inworld/nodejs-sdk'
+const run = async function () {
+  const token = await getToken();
+  // Use token here...
+};
+const data = await response.json();
+if (!response.ok) {
+  return console.log(response.statusText, ': ', data.errors);
+};
+if (data.character) {
+  setCharacter(data.character as Character);
+}
+// 2. Open WebSocket connection.
+const ws = new WebSocket(`${config.SESSION_URL}?key=${key}`);
+// 3. Attach handlers.
+ws.addEventListener('open', () => console.log('Open!'));
+ws.addEventListener('message', (message: MessageEvent) => console.log(message));
+ws.addEventListener('disconnect', () => console.log('Disconnect!'));
+// Stop audio playing.
+player.stop();
+// Clear history.
+setChatHistory([]);
+// Close connection.
+ws.close();
+ws.removeEventListener('open', onOpen);
+ws.removeEventListener('message', onMessage);
+ws.removeEventListener('disconnect', onDisconnect);
+const onOpen = () => {
+    console.log('Open!');
+  }
+  const onDisconnect = () => {
+    console.log('Disconnect!');
+  };
+  const onMessage = (message: MessageEvent) => {
+    const packet = JSON.parse(message.data);
+    let chatItem: ChatHistoryItem | undefined = undefined;
+    if (packet?.type === 'AUDIO') {
+      player.addToQueue(packet.audio?.chunk);
+    } else if (packet?.type === 'TEXT') {
+      const { character, playerName } = stateRef.current || {};
+      chatItem = {
+        id: packet.packetId?.utteranceId,
+        type: CHAT_HISTORY_TYPE.TEXT,
+        date: new Date(packet.date!),
+        source: packet.routing?.source,
+        text: packet.text.text,
+        interactionId: packet.packetId?.interactionId,
+        isRecognizing: !packet.text.final,
+        author: packet.routing!.source!.isCharacter
+          ? character?.displayName
+          : playerName,
+      };
+    } else if (packet?.control?.type === 'INTERACTION_END') {
+      chatItem = {
+        id: packet.packetId?.utteranceId,
+        type: CHAT_HISTORY_TYPE.INTERACTION_END,
+        date: new Date(packet.date!),
+        interactionId: packet.packetId?.interactionId
+      };
+    }
+  
+    if (chatItem) {
+      setChatHistory((currentState) => {
+        let newState = undefined;
+        let currentHistoryIndex = currentState.findIndex((item) => {
+          return item.id === chatItem?.id;
+        });
+        if (currentHistoryIndex >= 0 && chatItem) {
+          newState = [...currentState];
+          newState[currentHistoryIndex] = chatItem;
+        } else {
+          newState = [...currentState, chatItem!];
+        }
+        return newState;
+      });
+    }
+  };
+  let interval: NodeJS.Timeout;
+const arrayBufferToBase64 = (buffer: ArrayBuffer) => {
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  const length = bytes.byteLength;
+  for (let i = 0; i < length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return window.btoa(binary);
+}
+const mergeBuffers = (channelBuffer: Float32Array[], recordingLength: number) => {
+  const result = new Float32Array(recordingLength);
+  let offset = 0;
+  for (let i = 0; i < channelBuffer.length; i++) {
+    result.set(channelBuffer[i], offset);
+    offset += channelBuffer[i].length;
+  }
+  return Array.prototype.slice.call(result);
+}
+const startRecording = async () => {
+  const stream = await navigator.mediaDevices.getUserMedia({
+    audio: {
+      sampleRate: 16000,
+      echoCancellation: { ideal: true },
+      suppressLocalAudioPlayback: { ideal: true },
+    },
+    video: false,
+  });
+  const audioCtx = new AudioContext({
+    sampleRate: 16000,
+  });
+  const source = audioCtx.createMediaStreamSource(stream);
+  const scriptNode = audioCtx.createScriptProcessor(2048, 1, 1);
+  let leftChannel: Float32Array[] = [];
+  let recordingLength = 0;
+  scriptNode.onaudioprocess = (audioProcessingEvent) => {
+    const samples = audioProcessingEvent.inputBuffer.getChannelData(0);
+    leftChannel.push(new Float32Array(samples));
+    recordingLength += 2048;
+  };
+  source.connect(scriptNode);
+  scriptNode.connect(audioCtx.destination);
+  interval = setInterval(() => {
+    const PCM16iSamples = Int16Array.from(
+      mergeBuffers(
+        leftChannel,
+        recordingLength,
+      ),
+      (k) => 32767 * Math.min(1, k),
+    );
+    ws.send(JSON.stringify({
+      type: 'audio',
+      audio: arrayBufferToBase64(PCM16iSamples.buffer)
+    }));
+    //clear buffer
+    leftChannel = [];
+    recordingLength = 0;
+  }, 200);
+};
+const stopRecording = () => {
+  clearInterval(interval);
+  ws.send(JSON.stringify({ type: 'audioSessionEnd' }));
+};
+interface PlayerProps {
+    audio: HTMLAudioElement;
+  }
+    export class Player {
+    private audioPacketQueue: string[] = [];
+    private isPlaying = false;
+    private audioElement!: HTMLAudioElement;
+    preparePlayer(props: PlayerProps): void {
+      this.audioElement = props.audio;
+      this.audioElement.onended = () => {
+        this.playQueue();
+      };
+    }
+    getIsPlaying(): boolean {
+      return this.isPlaying;
+    }
+  
+    stop() {
+      this.audioElement.pause();
+      this.audioElement.currentTime = 0;
+    }
+    addToQueue(packet: string): void {
+      this.audioPacketQueue.push(packet);
+      if (!this.isPlaying) {
+        this.playQueue();
+      }
+    }
+    clearQueue() {
+      this.isPlaying = false;
+      this.audioPacketQueue = [];
+    }
+    private playQueue = (): void => {
+      if (!this.audioPacketQueue.length) {
+        this.isPlaying = false;
+        this.audioElement.src = '';
+        return;
+      }
+      const currentPacket = this.audioPacketQueue.shift();
+      this.isPlaying = true;
+      this.audioElement.src = 'data:audio/wav;base64,' + currentPacket;
+      this.audioElement.play().catch((e) => console.error(e));
+    };
+  }
+  import cors from 'cors';
+import express from 'express';
+import {
+  Character,
+  InworldClient,
+} from '@inworld/nodejs-sdk';
+import { createClient as createRedisClient } from 'redis';
+const app = express();
+app.use(cors());
+app.use(express.json());
+app.post(
+  '/load',
+  async (req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    await redisClient.set(req.query.key?.toString()!, JSON.stringify(req.body));
+    const connection = new InworldClient()
+      .setApiKey({
+        key: process.env.INWORLD_KEY!,
+        secret: process.env.INWORLD_SECRET!,
+      })
+      .setScene(req.body.scene)
+      .build();
+    const characters = await connection.getCharacters();
+    const character = characters.find(
+      (c: Character) => c.getResourceName() === req.body.character,
+    );
+    res.end(JSON.stringify({ character }));
+  },
+);
+server.on('upgrade', async (request, socket, head) => {
+    const { pathname } = parse(request.url!);
+    if (pathname === '/session') {
+      webSocket.handleUpgrade(request, socket, head, (ws) => {
+        webSocket.emit('connection', ws, request);
+      });
+    } else {
+      socket.destroy();
+    }
+  });
+  const connections: Connections = {};
+  const sent: SentState = {};
+  webSocket.on('connection', (ws, request) => {
+    const { query } = parse(request.url!, true);
+    const key = query.key?.toString();
+    if (!key) throw Error('Key is not provided!');
+    ws.on('error', console.error);
+    ws.on('message', async (data: RawData) => {
+      const {
+        player,
+        scene,
+        session: savedSession,
+      } = await storage.get(key);
+      const message = JSON.parse(data.toString());
+      if (!connections[key]) {
+        const client = new InworldClient()
+          .setConfiguration({
+            connection: { disconnectTimeout: DISCONNECT_TIMEOUT },
+          })
+          .setApiKey({
+            key: process.env.INWORLD_KEY!,
+            secret: process.env.INWORLD_SECRET!,
+          })
+          .setOnSession({
+            get: () => ({
+              sessionToken: savedSession?.sessionToken,
+              scene: savedSession?.scene,
+            }),
+            set: (session: Session) =>
+              storage.set(key, { player, scene, session }),
+          })
+          .setOnMessage((packet: InworldPacket) => {
+            ws.send(JSON.stringify(packet));
+            if (packet.isInteractionEnd()) {
+              connections[key].close();
+            }
+          })
+          .setOnError(handleError(key))
+          .setOnDisconnect(() => {
+            delete connections[key];
+            delete sent[key];
+          });
+        if (settings.player) {
+          client.setUser({ fullName: settings.player });
+        if (settings.scene) {
+          client.setScene(settings.scene);
+        }        connections[key] = client.build();
+      }      switch (message.type) {
+        case EVENT_TYPE.TEXT:
+          ws.send(JSON.stringify(await connections[key].sendText(message.text)));
+          break;
+        case EVENT_TYPE.AUDIO:
+          // Start audio session before send audio.
+          // It will be called after each disconnected initiated from client or server.
+          if (sent[key] === AUDIO_SESSION_STATE.ACTIVE) {
+            connections[key].sendAudio(message.audio);
+          } else {
+            sent[key] = AUDIO_SESSION_STATE.PROCESSING;
+            await connections[key].sendAudioSessionStart();
+            sent[key] = AUDIO_SESSION_STATE.ACTIVE;
+          }
+          break;
+        case EVENT_TYPE.AUDIO_SESSION_END:
+          delete sent[key];
+          connections[key].sendAudioSessionEnd();
+          break;
+      }
+    });
+  });
+  import { Session } from '@inworld/nodejs-sdk';
+import { createClient } from 'redis';
+
+interface StorageValue {
+  session: string;
+  player?: string;
+  scene?: string;
+}
+
+interface StorageRecord {
+  session?: Session;
+  player?: string;
+  scene?: string;
+}
+
+export class Storage {
+  private redisClient = createClient();
+
+  async connect({ onError }: { onError?: (err: Error) => void }) {
+    await this.redisClient.connect();
+
+    if (onError) {
+      this.redisClient.on('error', onError);
+    }
+  }
+
+  disconnect() {
+    this.redisClient.disconnect();
+  }
+
+  async get(key: string) {
+    const json = await this.redisClient.get(key);
+
+    if (!json) return {};
+    let parsed: StorageValue;
+    let session: Session;
+    try {
+      parsed = JSON.parse(json) as StorageValue;
+
+      if (parsed.session) {
+        session = Session.deserialize(parsed.session);
+      }
+    } catch (e) {}
+    return {
+      session,
+      player: parsed.player,
+      scene: parsed.scene,
+    } as StorageRecord;
+  }scene: entity.scene,
+      }),
+    );
+  }
+  delete(key: string) {
+    this.redisClient.del(key);
+  }
+}
